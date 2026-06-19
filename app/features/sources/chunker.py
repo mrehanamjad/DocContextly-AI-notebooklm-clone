@@ -1,6 +1,5 @@
-"""Markdown generator + smart chunker.
-
-Direct port from the notebook (Cell 4).
+"""
+Markdown generator + smart chunker.
 Converts loaded documents to markdown, then splits into chunks
 that respect page boundaries and preserve tables as atomic units.
 """

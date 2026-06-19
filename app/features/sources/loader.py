@@ -1,6 +1,5 @@
-"""File loader — PDF, DOCX, MD, CSV, TXT.
-
-Direct port from the notebook (Cell 3), adapted for server-side use.
+"""
+File loader — PDF, DOCX, MD, CSV, TXT.
 """
 
 from pathlib import Path

@@ -18,7 +18,7 @@ class CitationDetail(BaseModel):
     page_number: int
     chunk_index: int
     similarity_score: float
-    doc_id: str
+    source_id: str
     is_table: bool = False
     chunk_text: str = ""
 

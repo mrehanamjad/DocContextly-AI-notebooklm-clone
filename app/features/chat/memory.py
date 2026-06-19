@@ -1,8 +1,3 @@
-"""Conversation memory with sliding window + rolling summarisation.
-
-Ported from the notebook (Cell 5), adapted to reconstruct from database messages.
-"""
-
 from dataclasses import dataclass, field
 from typing import List, Optional
 from langchain_core.language_models import BaseChatModel

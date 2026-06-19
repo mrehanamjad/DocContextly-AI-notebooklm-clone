@@ -39,8 +39,14 @@ class Settings(BaseSettings):
     MEMORY_WINDOW: int = 6       # recent turns kept verbatim
     SUMMARISE_AFTER: int = 6     # trigger summarisation threshold
 
+    # ── Source limits ─────────────────────────────────────────────────────────
+    MAX_PLAIN_TEXT_CHARS: int = 50000   # max length for note text
+
     # ── Storage ────────────────────────────────────────────────────────────────
+    STORAGE_PROVIDER: str = 'imagekit'  # imagekit | local
     IMAGEKIT_PRIVATE_KEY: str = ''
+    IMAGEKIT_PUBLIC_KEY: str = ''
+    IMAGEKIT_URL_ENDPOINT: str = ''
 
     # ── Helpers ────────────────────────────────────────────────────────────────
     @property

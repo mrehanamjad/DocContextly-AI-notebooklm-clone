@@ -1,4 +1,4 @@
-from gunicorn.config import User
+from app.features.users.model import User
 from fastapi import Depends, APIRouter, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.features.users.schema import UserCreateReq, UserResponse, TokenResponse, UserLoginReq

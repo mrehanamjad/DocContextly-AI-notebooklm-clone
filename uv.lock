@@ -1116,6 +1116,23 @@ wheels = [
 ]
 
 [[package]]
+name = "imagekitio"
+version = "5.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/c1/c55972d03e607683b71de83e5eef3bf40544d6b3937be72e9465e8d4cf6b/imagekitio-5.6.0.tar.gz", hash = "sha256:aeea6c18995c82be1c004ba83999762cb886cf85460676db97e10f0e4ef2d606", size = 247571, upload-time = "2026-06-03T10:57:47.36Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/29/490f5d0d6115b30b2048a12e9e146855a05ea55a7fb5e2dfd4970f167892/imagekitio-5.6.0-py3-none-any.whl", hash = "sha256:c63238e4922d9db168329c81a469ba9b0bc4cbe10d0328ba4cd747442a697d61", size = 272847, upload-time = "2026-06-03T10:57:45.918Z" },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1373,6 +1390,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "docx2txt" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "imagekitio" },
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-core" },
@@ -1399,6 +1417,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "docx2txt", specifier = ">=0.9" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.136.3" },
+    { name = "imagekitio", specifier = ">=5.6.0" },
     { name = "langchain", specifier = ">=1.3.9" },
     { name = "langchain-community", specifier = ">=0.4.2" },
     { name = "langchain-core", specifier = ">=1.4.7" },

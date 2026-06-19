@@ -16,7 +16,7 @@ class Notebook(Base):
 
     # Relationships
     user = relationship("User", back_populates="notebooks")
-    documents = relationship("Document", back_populates="notebook", cascade="all, delete-orphan")
+    sources = relationship("Source", back_populates="notebook", cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="notebook", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:

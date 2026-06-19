@@ -1,44 +1,64 @@
-"""Storage provider abstraction layer.
-
-Supports: ImageKit. Add new providers by subclassing BaseStorageProvider.
-"""
+"""Storage provider abstraction with ImageKit implementation."""
 
 from abc import ABC, abstractmethod
 from typing import Optional
+import os
+import shutil
+
 from app.core.config import settings
 from app.core.logger import logger
 
+from imagekitio import ImageKit
 
 class BaseStorageProvider(ABC):
-    """Abstract base for file storage providers."""
-
     @abstractmethod
     def upload_file(self, file_path: str, file_name: str, folder: str = "/") -> dict:
-        """Upload a file and return metadata including URL."""
+        """Upload file, return dict with url, file_id."""
         ...
 
     @abstractmethod
     def delete_file(self, file_id: str) -> bool:
-        """Delete a file by its provider-specific ID."""
         ...
-
 
 class ImageKitProvider(BaseStorageProvider):
+    def __init__(self):
+        self.client = ImageKit(
+            private_key=settings.IMAGEKIT_PRIVATE_KEY,
+            # public_key=settings.IMAGEKIT_PUBLIC_KEY,
+            # url_endpoint=settings.IMAGEKIT_URL_ENDPOINT,
+            
+        )
+
     def upload_file(self, file_path: str, file_name: str, folder: str = "/") -> dict:
-        logger.info(f"ImageKit upload: {file_name} to {folder}")
-        # ImageKit integration via MCP or SDK — placeholder for future
-        return {"url": "", "file_id": "", "file_name": file_name}
+        try:
+            with open(file_path, "rb") as f:
+                response = self.client.files.upload(
+                    file=f,
+                    file_name=file_name,
+                    folder=folder,
+                    use_unique_file_name=True,
+                )
+            
+            logger.info(f"ImageKit upload successful: {response.file_id}")
+            return {
+                "url": response.url,
+                "file_id": response.file_id,
+            }
+        except Exception as e:
+            logger.error(f"ImageKit upload failed: {e}")
+            raise
 
     def delete_file(self, file_id: str) -> bool:
-        logger.info(f"ImageKit delete: {file_id}")
-        return True
-
+        try:
+            self.client.files.delete(file_id=file_id)
+            logger.info(f"ImageKit delete successful: {file_id}")
+            return True
+        except Exception as e:
+            logger.error(f"ImageKit delete failed: {e}")
+            return False
 
 class LocalStorageProvider(BaseStorageProvider):
-    """Fallback: stores files on the local filesystem."""
-
     def upload_file(self, file_path: str, file_name: str, folder: str = "/") -> dict:
-        import shutil, os
         dest_dir = os.path.join("uploads", folder.strip("/"))
         os.makedirs(dest_dir, exist_ok=True)
         dest = os.path.join(dest_dir, file_name)
@@ -46,22 +66,21 @@ class LocalStorageProvider(BaseStorageProvider):
         return {"url": dest, "file_id": dest, "file_name": file_name}
 
     def delete_file(self, file_id: str) -> bool:
-        import os
         if os.path.exists(file_id):
             os.remove(file_id)
             return True
         return False
 
 
-_PROVIDERS: dict[str, type[BaseStorageProvider]] = {
+_PROVIDERS = {
     "imagekit": ImageKitProvider,
     "local": LocalStorageProvider,
 }
 
 
 def get_storage_provider(provider_name: Optional[str] = None) -> BaseStorageProvider:
-    name = (provider_name or "local").lower()
+    name = (provider_name or settings.STORAGE_PROVIDER).lower()
     provider_cls = _PROVIDERS.get(name)
     if not provider_cls:
-        raise ValueError(f"Unknown storage provider: {name}. Available: {list(_PROVIDERS.keys())}")
+        raise ValueError(f"Unknown storage provider: {name}")
     return provider_cls()

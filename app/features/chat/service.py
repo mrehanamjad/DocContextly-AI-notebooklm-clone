@@ -15,7 +15,7 @@ from app.core.logger import logger
 from app.core.exceptions import NotFoundException
 
 from app.features.notebooks.service import NotebookService
-from app.features.documents.repository import DocumentRepository
+from app.features.sources.repository import SourceRepository
 from app.features.chat.repository import ChatSessionRepository, ChatMessageRepository, MemorySummaryRepository
 from app.features.chat.model import ChatSession, ChatMessage, MemorySummary
 from app.features.chat.schema import (
@@ -66,7 +66,7 @@ class ChatService:
         self.message_repo = ChatMessageRepository(db)
         self.summary_repo = MemorySummaryRepository(db)
         self.notebook_service = NotebookService(db)
-        self.doc_repo = DocumentRepository(db)
+        self.source_repo = SourceRepository(db)
 
     # ── Session management ─────────────────────────────────────────────────────
 
@@ -130,8 +130,8 @@ class ChatService:
 
         notebook_id = session.notebook_id
 
-        # Get doc_ids for this notebook
-        doc_ids = await self.doc_repo.get_doc_ids_for_notebook(notebook_id, user_id)
+        # Get source_ids for this notebook
+        source_ids = await self.source_repo.get_source_ids_for_notebook(notebook_id, user_id)
 
         # Reconstruct memory from DB
         latest_summary = await self.summary_repo.get_latest(session_id, user_id)
@@ -166,7 +166,7 @@ class ChatService:
         citations: list[CitationDetail] = []
         context_parts: list[str] = []
 
-        if doc_ids:
+        if source_ids:
             try:
                 embeddings = get_embeddings()
                 client = get_qdrant_client()
@@ -176,7 +176,7 @@ class ChatService:
                 # FIXED: user_id as string for Qdrant filter
                 search_filter = Filter(must=[
                     FieldCondition(key='user_id', match=MatchValue(value=str(user_id))),
-                    FieldCondition(key='doc_id', match=MatchAny(any=doc_ids)),
+                    FieldCondition(key='source_id', match=MatchAny(any=source_ids)),
                 ])
 
                 results = client.query_points(
@@ -195,7 +195,7 @@ class ChatService:
                         page_number=p['page_number'],
                         chunk_index=p['chunk_index'],
                         similarity_score=round(hit.score, 4),
-                        doc_id=p['doc_id'],
+                        source_id=p['source_id'],
                         is_table=p.get('is_table', False),
                         chunk_text=p['chunk_text'],
                     ))

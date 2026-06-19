@@ -12,9 +12,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # ── Import all models so Alembic sees them ────────────────────────────────────
 from app.database.base import Base
-from app.features.users.model import User                           # noqa: F401
-from app.features.notebooks.model import Notebook                   # noqa: F401
-from app.features.documents.model import Document, DocumentChunk    # noqa: F401
+from app.features.users.model import User                               # noqa: F401
+from app.features.notebooks.model import Notebook                       # noqa: F401
+from app.features.sources.model import Source              # noqa: F401
 from app.features.chat.model import ChatSession, ChatMessage, MemorySummary  # noqa: F401
 
 from app.core.config import settings

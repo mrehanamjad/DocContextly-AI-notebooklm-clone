@@ -2,15 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # ── Import all models so Alembic can discover them ────────────────────────────
-from app.features.users.model import User          # noqa: F401
-from app.features.notebooks.model import Notebook   # noqa: F401
-from app.features.documents.model import Document, DocumentChunk  # noqa: F401
-from app.features.chat.model import ChatSession, ChatMessage, MemorySummary  # noqa: F401
+from app.features.users.model import User
+from app.features.notebooks.model import Notebook
+from app.features.sources.model import Source
+from app.features.chat.model import ChatSession, ChatMessage, MemorySummary
 
 # ── Import routers ────────────────────────────────────────────────────────────
 from app.features.users.router import router as users_router
 from app.features.notebooks.router import router as notebooks_router
-from app.features.documents.router import router as documents_router
+from app.features.sources.router import router as sources_router
 from app.features.chat.router import router as chat_router
 
 app = FastAPI(
@@ -31,7 +31,7 @@ app.add_middleware(
 # ── Register routers ─────────────────────────────────────────────────────────
 app.include_router(users_router, prefix="/api/v1/users")
 app.include_router(notebooks_router, prefix="/api/v1/notebooks")
-app.include_router(documents_router, prefix="/api/v1/documents")
+app.include_router(sources_router, prefix="/api/v1/sources")
 app.include_router(chat_router, prefix="/api/v1/chat")
 
 
