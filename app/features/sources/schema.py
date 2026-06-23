@@ -1,10 +1,19 @@
-from pydantic import HttpUrl
-from typing import Tuple
+from pydantic import HttpUrl, BaseModel, Field, ConfigDict, field_validator, AfterValidator, ValidationInfo
+from typing import Tuple, Optional, Any, Annotated
 from datetime import datetime
 import uuid
-from typing import Optional, Any
-from pydantic import BaseModel, Field, ConfigDict, field_validator
 from enum import Enum
+
+
+# --- Reusable Dynamic Validator ---
+def check_not_blank(v: str, info: ValidationInfo) -> str:
+    v = v.strip()
+    if not v:
+        field_name = info.field_name.replace('_', ' ').title() if info.field_name else 'Field'
+        raise ValueError(f'{field_name} cannot be empty or just whitespace')
+    return v
+
+NonBlankStr = Annotated[str, AfterValidator(check_not_blank)]
 
 
 class SourceType(str, Enum):
@@ -13,7 +22,6 @@ class SourceType(str, Enum):
     YOUTUBE = "youtube"
     TOPIC = "topic"
     NOTE = "note"
-
 
 class SourceStatus(str, Enum):
     PENDING = "pending"
@@ -28,13 +36,10 @@ class TargetURL(BaseModel):
     @classmethod
     def ensure_scheme(cls, v: Any) -> Any:
         if isinstance(v, str):
-            # Clean up accidental spaces
             v = v.strip()
-            # If it doesn't start with http or https, assume https
             if not v.startswith(('http://', 'https://')):
                 return f"https://{v}"
         return v
-
 
 # ---- Source-specific data models ----
 
@@ -46,13 +51,10 @@ class UploadSourceData(BaseModel):
     imagekit_url: str
     thumbnail_url: Optional[str] = None
 
-
 class WebsiteSourceData(BaseModel):
     url: TargetURL
     title: str
     content: str = ""
-    word_count: int = 0
-
 
 class YouTubeSourceData(BaseModel):
     url: TargetURL
@@ -60,14 +62,11 @@ class YouTubeSourceData(BaseModel):
     thumbnail_url: Optional[str] = None
     language: str = "en"
     content: str = ""
-    
-
 
 class TopicSourceData(BaseModel):
     topic: str
     content: str = ""
     source_urls: list[str] = []
-
 
 class NoteSourceData(BaseModel):
     content: str
@@ -80,7 +79,6 @@ class NoteSourceData(BaseModel):
             raise ValueError(f"Text content exceeds maximum length of {settings.MAX_PLAIN_TEXT_CHARS} characters")
         return v
 
-
 # ---- Request/Response schemas ----
 
 class SourceCreate(BaseModel):
@@ -89,11 +87,10 @@ class SourceCreate(BaseModel):
     title: str
     source_data: dict[str, Any]
 
-
 class NoteCreateRequest(BaseModel):
     notebook_id: uuid.UUID
-    title: str = Field(..., max_length=255)
-    content: str = Field(..., max_length=20000)
+    title: Annotated[str, Field(max_length=255), AfterValidator(check_not_blank)]
+    content: Annotated[str, Field(max_length=20000), AfterValidator(check_not_blank)]
 
 class SourceUploadResponse(BaseModel):
     id: uuid.UUID
@@ -101,7 +98,6 @@ class SourceUploadResponse(BaseModel):
     title: str
     source_type: SourceType
     status: SourceStatus
-
 
 class SourceResponse(BaseModel):
     id: uuid.UUID
@@ -119,7 +115,6 @@ class SourceResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-
 class SourceListResponse(BaseModel):
     sources: list[SourceResponse]
     total: int
@@ -127,11 +122,9 @@ class SourceListResponse(BaseModel):
     size: int = Field(20, ge=1)
     has_more: bool = False
 
-
 class SourceDeleteResponse(BaseModel):
     message: str
     source_id: str
-
 
 class SourceStatusResponse(BaseModel):
     source_id: str

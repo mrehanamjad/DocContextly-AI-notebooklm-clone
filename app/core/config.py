@@ -32,8 +32,9 @@ class Settings(BaseSettings):
 
     # ── RAG Tuning ─────────────────────────────────────────────────────────────
     RETRIEVER_K: int = 5
-    CHUNK_SIZE: int = 500
-    CHUNK_OVERLAP: int = 50
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 120
+    MIN_CHUNK_SIZE: int = 75
 
     # ── Conversation Memory ───────────────────────────────────────────────────
     MEMORY_WINDOW: int = 6       # recent turns kept verbatim
@@ -47,6 +48,7 @@ class Settings(BaseSettings):
     IMAGEKIT_PRIVATE_KEY: str = ''
     IMAGEKIT_PUBLIC_KEY: str = ''
     IMAGEKIT_URL_ENDPOINT: str = ''
+    MAX_UPLOAD_SIZE_BYTES: int = 25 * 1024 * 1024
 
 
     TAVILY_API_KEY: str = ''

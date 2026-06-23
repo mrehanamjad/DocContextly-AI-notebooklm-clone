@@ -41,11 +41,20 @@ class NotebookService:
 
     async def update_notebook(self, notebook_id: uuid.UUID, data: NotebookUpdate, user_id: uuid.UUID) -> Notebook:
         notebook = await self.get_notebook(notebook_id, user_id)
-        if data.title is not None:
+        has_changes = False
+        if data.title is not None and data.title != notebook.title:
             notebook.title = data.title
-        if data.description is not None:
+            has_changes = True
+        if data.description is not None and data.description != notebook.description:
             notebook.description = data.description
-        return await self.repo.update(notebook)
+            has_changes = True
+        
+        if not has_changes:
+            return notebook
+        
+        updated = await self.repo.update(notebook)
+        logger.info(f"Notebook updated: id={notebook.id}")
+        return updated
 
     async def delete_notebook(self, notebook_id: uuid.UUID, user_id: uuid.UUID) -> None:
         notebook = await self.get_notebook(notebook_id, user_id)

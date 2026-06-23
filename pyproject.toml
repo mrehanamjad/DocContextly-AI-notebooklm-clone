@@ -31,5 +31,7 @@ dependencies = [
     "qdrant-client>=1.18.0",
     "sentence-transformers>=5.5.1",
     "sqlalchemy[asyncio]>=2.0.50",
+    "urllib3>=2.7.0",
     "uvicorn>=0.48.0",
+    "youtube-transcript-api>=1.2.4",
 ]

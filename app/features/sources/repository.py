@@ -37,6 +37,31 @@ class SourceRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_in_notebook_bulk(self, source_ids: list[str], user_id: uuid.UUID, notebook_id: uuid.UUID) -> list[Source]:
+        """Scope Validation Bulk: Checks if multiple files exist in the specific notebook."""
+        if not source_ids:
+            return []
+        result = await self.db.execute(
+            select(Source).where(
+                Source.source_id.in_(source_ids),
+                Source.user_id == user_id,
+                Source.notebook_id == notebook_id
+            )
+        )
+        return list(result.scalars().all())
+
+    async def get_global_bulk(self, source_ids: list[str], user_id: uuid.UUID) -> list[Source]:
+        """Cross-Notebook Validation Bulk: Fetches existing global sources for cross-notebook linking."""
+        if not source_ids:
+            return []
+        result = await self.db.execute(
+            select(Source).where(
+                Source.source_id.in_(source_ids),
+                Source.user_id == user_id
+            )
+        )
+        return list(result.scalars().all())
+
     async def list_by_notebook(self, notebook_id: uuid.UUID, user_id: uuid.UUID,
                                skip: int = 0, limit: int = 20) -> list[Source]:
         result = await self.db.execute(
