@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     # ── YouTube ────────────────────────────────────────────────────────────────
     YOUTUBE_DATA_API_KEY: str = ''
 
+    PEXELS_API_KEY: str = ''
+
     # ── Helpers ────────────────────────────────────────────────────────────────
     @property
     def async_database_url(self) -> str:
