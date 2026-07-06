@@ -411,6 +411,7 @@ Rules:
   or insights visible in the data — grounded strictly in the evidence pack.
 - If the evidence pack does not contain enough structured data for a meaningful table,
   build the best reasonable table from whatever concrete facts/figures are available.
+- Do not create column for mentioning source context or source citations or reference. 
 
 Evidence pack:
 {evidence_pack_json}
@@ -583,7 +584,7 @@ Evidence pack:
         slide_count_guidance = {
             "short": "Create 5-7 slides.",
             "medium": "Create 8-10 slides.",
-            "long": "Create 12-16 slides.",
+            "long": "Create 11-15 slides.",
         }.get(deck_length, "Create 8-10 slides.")
 
         return f"""

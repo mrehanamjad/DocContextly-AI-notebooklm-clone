@@ -576,7 +576,7 @@ class SourceService:
         return responses
 
     async def create_topic_source(
-        self, topic: str, notebook_id: uuid.UUID, user_id: uuid.UUID
+        self, topic: str,no_of_sources:int, notebook_id: uuid.UUID, user_id: uuid.UUID
     ) -> list[SourceUploadResponse]:
         """Public method for the topic ingestion API route."""
         from app.features.sources.loader import get_topic_urls 
@@ -585,7 +585,7 @@ class SourceService:
         if not clean_topic:
             raise BadRequestException("Topic query cannot be empty.")
 
-        target_urls = await get_topic_urls(clean_topic)
+        target_urls = await get_topic_urls(clean_topic,no_of_sources)
         if not target_urls:
             raise BadRequestException("No web search results found for this topic.")
         
@@ -677,8 +677,7 @@ class SourceService:
     ) -> SourceListResponse:
         await self.notebook_service.get_notebook(notebook_id, user_id)
         skip = (page - 1) * size
-        sources = await self.source_repo.list_by_notebook(notebook_id, user_id, skip=skip, limit=size)
-        total = await self.source_repo.count_by_notebook(notebook_id, user_id)
+        sources, total = await self.source_repo.list_by_notebook(notebook_id, user_id, skip=skip, limit=size)
         return SourceListResponse(
             sources=[SourceResponse.model_validate(s) for s in sources],
             total=total, page=page, size=size,

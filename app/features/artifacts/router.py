@@ -273,8 +273,8 @@ async def list_artifacts(
     notebook_id: uuid.UUID,
     artifact_type: Optional[ArtifactType] = Query(None, description="Filter by artifact type"),
     status_filter: Optional[ArtifactStatus] = Query(None, description="Filter by status"),
-    limit: int = Query(20, ge=1, le=100, description="Number of artifacts to return"),
-    offset: int = Query(0, ge=0, description="Pagination offset"),
+    size: int = Query(50, ge=1, le=100, description="Number of artifacts to return"),
+    page: int = Query(1, ge=1),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -285,8 +285,8 @@ async def list_artifacts(
         current_user.id,
         artifact_type=artifact_type,
         status_filter=status_filter,
-        limit=limit,
-        offset=offset,
+        size=size,
+        page=page,
     )
     return APIResponse(
         message="Artifacts fetched successfully",

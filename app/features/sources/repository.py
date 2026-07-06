@@ -73,15 +73,37 @@ class SourceRepository:
         )
         return list(result.scalars().all())
 
-    async def list_by_notebook(self, notebook_id: uuid.UUID, user_id: uuid.UUID,
-                               skip: int = 0, limit: int = 20) -> list[Source]:
-        result = await self.db.execute(
-            select(Source)
-            .where(Source.notebook_id == notebook_id, Source.user_id == user_id)
+    async def list_by_notebook(
+        self,
+        notebook_id: uuid.UUID,
+        user_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[Source], int]:
+        stmt = (
+            select(
+                Source,
+                func.count().over().label("total"),
+            )
+            .where(
+                Source.notebook_id == notebook_id,
+                Source.user_id == user_id,
+            )
             .order_by(Source.created_at.desc())
-            .offset(skip).limit(limit)
+            .offset(skip)
+            .limit(limit)
         )
-        return list(result.scalars().all())
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        if not rows:
+            return [], 0
+
+        sources = [row.Source for row in rows]
+        total = rows[0].total
+
+        return sources, total
 
     async def count_by_notebook(self, notebook_id: uuid.UUID, user_id: uuid.UUID) -> int:
         result = await self.db.execute(

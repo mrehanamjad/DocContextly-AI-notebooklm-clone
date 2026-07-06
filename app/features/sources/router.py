@@ -31,7 +31,7 @@ async def upload_source(
 @router.post("/website", response_model=APIResponse[List[SourceUploadResponse]], status_code=status.HTTP_202_ACCEPTED)
 async def add_website(
     notebook_id: uuid.UUID = Query(...),
-    urls: list[str] = Query(default=list, alias="url"), 
+    urls: list[str] = Query(default=list, alias="url",max_length=20), 
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -46,7 +46,7 @@ async def add_website(
 @router.post("/youtube", response_model=APIResponse[List[SourceUploadResponse]], status_code=status.HTTP_202_ACCEPTED)
 async def add_youtube(
     notebook_id: uuid.UUID = Query(...),
-    urls: list[str] = Query(default=list, alias="url"),
+    urls: list[str] = Query(default=list, alias="url",max_length=10),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -62,11 +62,12 @@ async def add_youtube(
 async def add_topic(
     notebook_id: uuid.UUID = Query(...),
     topic: str = Query(...),
+    no_of_sources: int = Query(5,le=20),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = SourceService(db)
-    sources = await service.create_topic_source(topic, notebook_id, current_user.id)
+    sources = await service.create_topic_source(topic,no_of_sources, notebook_id, current_user.id)
     return APIResponse(
         message="Topic processed successfully and web sources added",
         data=sources

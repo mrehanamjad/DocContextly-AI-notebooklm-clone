@@ -447,7 +447,6 @@ async def run_voice_overview_generation_task(
             )
 
             # 6. Persist success — audio metadata is nested inside content_json
-            # (no dedicated audio_url/audio_file_id/audio_duration_seconds columns)
             stored_content = AudioOverviewStoredContent(
                 title=script.title,
                 description=script.description,
