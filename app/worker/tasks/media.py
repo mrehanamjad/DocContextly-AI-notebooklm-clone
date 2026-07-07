@@ -85,7 +85,9 @@ async def generate_voice_overview(
 
         if is_transient:
             logger.warning(f"{prefix} Detected transient error. Attempting retry.")
-            handle_transient_error(e, job_try)
+            t_err = TransientWorkerError(f"Transient error: {e}")
+            handle_transient_error(t_err, job_try)
         
-        # If not transient or max retries exceeded, it's fatal
-        raise FatalWorkerError(f"Permanent failure during voice generation: {e}") from e
+        # If not transient or max retries exceeded, propagate the exception.
+        # run_voice_overview_generation_task already marks the DB as ERROR.
+        raise

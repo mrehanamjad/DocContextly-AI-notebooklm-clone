@@ -289,7 +289,7 @@ async def index_source_background(
                     global_idx = total_points + i
                     points.append(
                         PointStruct(
-                            id=str(uuid.uuid4()),
+                            id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}_{global_idx}")),
                             vector=batch_vectors[i],
                             payload={
                                 'source_id': source_id,

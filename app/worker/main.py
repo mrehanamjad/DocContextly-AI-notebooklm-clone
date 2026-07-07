@@ -107,9 +107,8 @@ class WorkerSettings:
     # Maximum number of jobs running concurrently in this worker.
     max_jobs = 10
 
-    # Time (seconds) before a running job is considered timed out.
-    # Voice overview generation can take up to ~2 minutes.
-    job_timeout = 300
+    # How long to wait for active jobs to finish during a graceful shutdown (SIGTERM).
+    job_completion_wait = 30
 
     # How long a job result is kept in Redis after completion (seconds).
     keep_result = 3600

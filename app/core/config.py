@@ -8,6 +8,8 @@ load_dotenv(Path(__file__).parent.parent.parent / '.env')
 class Settings(BaseSettings):
     # ── Database ───────────────────────────────────────────────────────────────
     DATABASE_URL: str = ''
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
 
     # ── Auth ───────────────────────────────────────────────────────────────────
     SECRET_KEY: str = ''

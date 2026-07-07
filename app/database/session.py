@@ -3,11 +3,13 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
-#  Async engine (for FastAPI app) 
+#  Async engine (for FastAPI app and workers) 
 async_engine = create_async_engine(
     settings.async_database_url,
     echo=False,
     pool_pre_ping=True,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
 )
 
 AsyncSessionLocal = async_sessionmaker(

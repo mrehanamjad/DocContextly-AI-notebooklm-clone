@@ -95,12 +95,24 @@ async def generate_text_artifact(
 
     except Exception as e:
         elapsed = round(time.monotonic() - start_time, 2)
-        logger.error(
-            f"{prefix} Failed after {elapsed}s: {e}",
-            exc_info=True,
-        )
+        logger.error(f"{prefix} Failed after {elapsed}s: {e}", exc_info=True)
 
-        # run_generation_task already writes ERROR status to the DB in
-        # its own except block, so we don't duplicate that logic here.
-        # We just let the exception propagate so ARQ marks the job as failed.
+        import httpx
+        from qdrant_client.http.exceptions import RpcError
+        
+        err_str = str(e).lower()
+        is_transient = isinstance(e, (
+            httpx.RequestError,
+            TimeoutError,
+            ConnectionError,
+            RpcError
+        )) or "timeout" in err_str or "rate limit" in err_str or "connection" in err_str or "unavailable" in err_str or "503" in err_str or "502" in err_str or "429" in err_str
+
+        if is_transient:
+            logger.warning(f"{prefix} Transient error detected, attempting retry...")
+            t_err = TransientWorkerError(f"Transient error: {e}")
+            handle_transient_error(t_err, ctx.get("job_try", 1))
+
+        # run_generation_task already writes ERROR status to the DB.
+        # We let the exception propagate so ARQ marks the job as failed if permanent or out of retries.
         raise
