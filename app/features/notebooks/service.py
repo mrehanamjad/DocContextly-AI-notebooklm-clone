@@ -27,12 +27,29 @@ class NotebookService:
             raise NotFoundException(f"Notebook {notebook_id} not found")
         return notebook
 
-    async def list_notebooks(self, user_id: uuid.UUID, page: int = 1, size: int = 20) -> NotebookListResponse:
+    async def list_notebooks(
+        self,
+        user_id: uuid.UUID,
+        page: int = 1,
+        size: int = 20,
+    ) -> NotebookListResponse:
         skip = (page - 1) * size
-        notebooks = await self.repo.list_by_user(user_id, skip=skip, limit=size)
-        total = await self.repo.count_by_user(user_id)
+
+        rows, total = await self.repo.list_by_user(
+            user_id=user_id,
+            skip=skip,
+            limit=size,
+        )
+
+        notebooks = []
+
+        for notebook, source_count, _ in rows:
+            data = NotebookResponse.model_validate(notebook).model_dump()
+            data["source_count"] = source_count
+            notebooks.append(NotebookResponse(**data))
+
         return NotebookListResponse(
-            notebooks=[NotebookResponse.model_validate(n) for n in notebooks],
+            notebooks=notebooks,
             total=total,
             page=page,
             size=size,

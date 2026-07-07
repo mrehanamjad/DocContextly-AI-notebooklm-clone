@@ -39,6 +39,7 @@ class NotebookResponse(BaseModel):
     user_id: uuid.UUID
     title: str
     description: Optional[str] = None
+    source_count: Optional[int] = 0
     created_at: datetime
     updated_at: datetime
 

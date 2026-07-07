@@ -1,3 +1,4 @@
+from app.features.sources.model import Source
 import uuid
 from typing import Optional
 from sqlalchemy import select, func
@@ -22,16 +23,33 @@ class NotebookRepository:
         )
         return result.scalar_one_or_none()
 
-    # FIXED: int → uuid.UUID for user_id
-    async def list_by_user(self, user_id: uuid.UUID, skip: int = 0, limit: int = 20) -> list[Notebook]:
-        result = await self.db.execute(
-            select(Notebook)
+
+
+    async def list_by_user(
+        self,
+        user_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 20,
+    ):
+        stmt = (
+            select(
+                Notebook,
+                func.count(Source.id).label("source_count"),
+                func.count(Notebook.id).over().label("total_count"),
+            )
+            .outerjoin(Source, Source.notebook_id == Notebook.id)
             .where(Notebook.user_id == user_id)
-            .order_by(Notebook.updated_at.desc())
+            .group_by(Notebook.id)
             .offset(skip)
             .limit(limit)
         )
-        return list(result.scalars().all())
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        total = rows[0].total_count if rows else 0
+
+        return rows, total
 
     async def count_by_user(self, user_id: uuid.UUID) -> int:
         result = await self.db.execute(
