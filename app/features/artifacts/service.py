@@ -400,6 +400,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logger import logger
 from app.core.exceptions import NotFoundException, BadRequestException
 from app.core.providers.storage import get_storage_provider
+from app.core.queue.config import get_arq_pool
 
 from app.features.notebooks.service import NotebookService
 from app.features.sources.repository import SourceRepository
@@ -459,17 +460,19 @@ class ArtifactService:
 
     # ── Core Generation Pipeline ──────────────────────────────────────────────────
 
-    async def _create_processing_artifact(
+    async def _prepare_artifact(
         self,
         notebook_id: uuid.UUID,
         user_id: uuid.UUID,
         artifact_type: ArtifactType,
         request: BaseArtifactRequest,
         options: dict[str, Any],
-        background_tasks: BackgroundTasks,
-    ) -> Artifact:
-        """Phase 1: Validate, resolve sources, save PROCESSING state, and enqueue task."""
-        
+    ) -> tuple[Artifact, list[str]]:
+        """Validate, resolve sources, and create a PROCESSING artifact record.
+
+        Returns the saved artifact and the resolved source IDs so the caller
+        can dispatch the job via ARQ or BackgroundTasks as appropriate.
+        """
         # 1. Validate notebook ownership synchronously (fail-fast)
         await self.notebook_service.get_notebook(notebook_id, user_id)
 
@@ -495,20 +498,60 @@ class ArtifactService:
 
         saved_artifact = await self.artifact_repo.create(artifact)
         logger.info(f"Artifact saved with PROCESSING status: {saved_artifact}")
-        
-        # 4. Enqueue the heavy lifting to the background worker
-        background_tasks.add_task(
-            run_generation_task,
-            artifact_id=saved_artifact.id,
-            notebook_id=notebook_id,
-            user_id=user_id,
-            artifact_type=artifact_type,
-            request_prompt=request.prompt,
-            options=options,
-            resolved_ids=resolved_ids
-        )
 
-        return saved_artifact
+        return saved_artifact, resolved_ids
+
+    async def _enqueue_text_artifact(
+        self,
+        artifact: Artifact,
+        notebook_id: uuid.UUID,
+        user_id: uuid.UUID,
+        artifact_type: ArtifactType,
+        request_prompt: str | None,
+        options: dict[str, Any],
+        resolved_ids: list[str],
+    ) -> None:
+        """Enqueue a text artifact generation job via ARQ.
+
+        All values are serialised to strings/dicts before being sent to Redis.
+        """
+        pool = get_arq_pool()
+        await pool.enqueue_job(
+            "generate_text_artifact",
+            artifact_id=str(artifact.id),
+            notebook_id=str(notebook_id),
+            user_id=str(user_id),
+            artifact_type=artifact_type.value,
+            request_prompt=request_prompt,
+            options=options,
+            resolved_ids=resolved_ids,
+        )
+        logger.info(f"ARQ job enqueued for artifact {artifact.id} (type={artifact_type.value})")
+
+    async def _enqueue_voice_overview(
+        self,
+        artifact: Artifact,
+        notebook_id: uuid.UUID,
+        user_id: uuid.UUID,
+        request_prompt: str | None,
+        options: dict[str, Any],
+        resolved_ids: list[str],
+    ) -> None:
+        """Enqueue a voice overview generation job via ARQ.
+
+        All values are serialised to strings/dicts before being sent to Redis.
+        """
+        pool = get_arq_pool()
+        await pool.enqueue_job(
+            "generate_voice_overview",
+            artifact_id=str(artifact.id),
+            notebook_id=str(notebook_id),
+            user_id=str(user_id),
+            request_prompt=request_prompt,
+            options=options,
+            resolved_ids=resolved_ids,
+        )
+        logger.info(f"ARQ job enqueued for voice overview artifact {artifact.id}")
 
     # ── Public API Methods ────────────────────────────────────────────────────────
 
@@ -517,7 +560,6 @@ class ArtifactService:
         notebook_id: uuid.UUID, 
         user_id: uuid.UUID, 
         request: QuizCreateRequest,
-        background_tasks: BackgroundTasks,
     ) -> Artifact:
 
         q_nos =  int(request.number_of_questions)
@@ -530,92 +572,139 @@ class ArtifactService:
             "question_count": q_nos,
             "difficulty": request.difficulty.value,
         }
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.QUIZ, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.QUIZ, request, options
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.QUIZ, request.prompt, options, resolved_ids
+        )
+        return artifact
 
     async def create_flashcards(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: FlashcardCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: FlashcardCreateRequest,
     ) -> Artifact:
         options = {"card_count": request.number_of_cards}
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.FLASHCARDS, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.FLASHCARDS, request, options
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.FLASHCARDS, request.prompt, options, resolved_ids
+        )
+        return artifact
 
     async def create_faqs(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: FAQCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: FAQCreateRequest,
     ) -> Artifact:
         options = {"faq_count": request.number_of_faqs}
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.FAQ, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.FAQ, request, options
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.FAQ, request.prompt, options, resolved_ids
+        )
+        return artifact
 
     async def create_study_guide(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: StudyGuideCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: StudyGuideCreateRequest,
     ) -> Artifact:
         options = {"size": request.size.value}
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.STUDY_GUIDE, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.STUDY_GUIDE, request, options
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.STUDY_GUIDE, request.prompt, options, resolved_ids
+        )
+        return artifact
 
     async def create_summary(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: SummaryCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: SummaryCreateRequest,
     ) -> Artifact:
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.SUMMARY, request, {}, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.SUMMARY, request, {}
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.SUMMARY, request.prompt, {}, resolved_ids
+        )
+        return artifact
 
     async def create_mindmap(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: MindMapCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: MindMapCreateRequest,
     ) -> Artifact:
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.MINDMAP, request, {}, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.MINDMAP, request, {}
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.MINDMAP, request.prompt, {}, resolved_ids
+        )
+        return artifact
 
     async def create_slide_deck(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: SlideDeckCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: SlideDeckCreateRequest,
     ) -> Artifact:
         options = {"length": request.length}
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.SLIDE_DECK, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.SLIDE_DECK, request, options
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.SLIDE_DECK, request.prompt, options, resolved_ids
+        )
+        return artifact
 
     async def create_voice_overview(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: AudioOverviewCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: AudioOverviewCreateRequest,
     ) -> Artifact:
         options = {
             "length": request.length.value,
             "voice_style": request.voice_style.value,
             "host_names": request.host_names or ["Alex", "Jordan"],
         }
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.VOICE_OVERVIEW, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.VOICE_OVERVIEW, request, options
         )
+        await self._enqueue_voice_overview(
+            artifact=artifact,
+            notebook_id=notebook_id,
+            user_id=user_id,
+            request_prompt=request.prompt,
+            options=options,
+            resolved_ids=resolved_ids,
+        )
+        return artifact
 
     async def create_report(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: ReportCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: ReportCreateRequest,
     ) -> Artifact:
         options = {"length": request.length.value}
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.REPORT, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.REPORT, request, options
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.REPORT, request.prompt, options, resolved_ids
+        )
+        return artifact
 
     async def create_datatable(
-        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: DataTableCreateRequest, background_tasks: BackgroundTasks
+        self, notebook_id: uuid.UUID, user_id: uuid.UUID, request: DataTableCreateRequest,
     ) -> Artifact:
         options = {"max_rows": request.max_rows}
-        return await self._create_processing_artifact(
-            notebook_id, user_id, ArtifactType.DATATABLE, request, options, background_tasks
+        artifact, resolved_ids = await self._prepare_artifact(
+            notebook_id, user_id, ArtifactType.DATATABLE, request, options
         )
+        await self._enqueue_text_artifact(
+            artifact, notebook_id, user_id, ArtifactType.DATATABLE, request.prompt, options, resolved_ids
+        )
+        return artifact
     
     async def retry_artifact_generation(
         self,
         notebook_id: uuid.UUID,
         artifact_id: uuid.UUID,
         user_id: uuid.UUID,
-        background_tasks: BackgroundTasks,
     ) -> Artifact:
-        """Retry a failed artifact generation."""
+        """Retry a failed artifact generation.
+
+        Routes text and voice artifacts through ARQ.
+        """
         # 1. Fetch the artifact
         artifact = await self.get_artifact(notebook_id, artifact_id, user_id)
         
@@ -627,17 +716,26 @@ class ArtifactService:
         artifact.error_message = None
         await self.artifact_repo.update(artifact)
         
-        # 3. Re-enqueue the same generation task
-        background_tasks.add_task(
-            run_generation_task,
-            artifact_id=artifact.id,
-            notebook_id=notebook_id,
-            user_id=user_id,
-            artifact_type=artifact.artifact_type,
-            request_prompt=artifact.options_json.get("prompt"),
-            options=artifact.options_json,
-            resolved_ids=artifact.included_sources
-        )
+        # 3. Re-enqueue — ARQ for both text and voice artifacts
+        if artifact.artifact_type == ArtifactType.VOICE_OVERVIEW:
+            await self._enqueue_voice_overview(
+                artifact=artifact,
+                notebook_id=notebook_id,
+                user_id=user_id,
+                request_prompt=artifact.options_json.get("prompt"),
+                options=artifact.options_json,
+                resolved_ids=artifact.included_sources,
+            )
+        else:
+            await self._enqueue_text_artifact(
+                artifact=artifact,
+                notebook_id=notebook_id,
+                user_id=user_id,
+                artifact_type=artifact.artifact_type,
+                request_prompt=artifact.options_json.get("prompt"),
+                options=artifact.options_json,
+                resolved_ids=artifact.included_sources,
+            )
 
         resuming_from_cache = bool(artifact.evidence_pack_json)
         logger.info(

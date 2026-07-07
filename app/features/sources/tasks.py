@@ -152,6 +152,8 @@
 import asyncio
 import os
 import uuid
+import tempfile
+import urllib.request
 from typing import List, Any
 from datetime import datetime
 
@@ -194,36 +196,55 @@ async def index_source_background(
     source_type: SourceType,
     user_id: uuid.UUID,
     notebook_id: uuid.UUID,
-    **kwargs,
 ) -> None:
-    """Generic background indexer for all source types."""
+    """Generic background indexer for all source types (Distributed-safe)."""
     async with AsyncSessionLocal() as db:
         source_repo = SourceRepository(db)
 
         try:
+            # ─── 0. Fetch Source from DB (Payload Minimization) ────────────────
+            source = await source_repo.get_in_notebook(source_id, user_id, notebook_id)
+            if not source:
+                raise ValueError(f"Source {source_id} not found in DB")
+
             # ─── 1. Extract Text & Chunk (Safely Offloaded) ──────────────────────
             if source_type == SourceType.UPLOAD:
-                file_path = kwargs.get("file_path")
-                file_name = kwargs.get("file_name")
-                if not file_path:
-                    raise ValueError("File path missing for upload ingestion")
-                
-                # Offload the heavy PDF parsing and chunking to a thread pool!
-                chunks = await asyncio.to_thread(
-                    _sync_extract_and_chunk, 
-                    file_path, 
-                    file_name, 
-                    settings.CHUNK_SIZE, 
-                    settings.CHUNK_OVERLAP
-                )
-                title = file_name
+                file_name = source.source_data.get("file_name", "unknown")
+                imagekit_url = source.source_data.get("imagekit_url")
+
+                if not imagekit_url:
+                    raise ValueError("Missing imagekit_url in source_data")
+
+                # Create a local temp file specifically for this worker instance
+                ext = os.path.splitext(file_name)[1]
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+                temp_path = temp_file.name
+                temp_file.close()
+
+                try:
+                    # Download the file from ImageKit
+                    await asyncio.to_thread(urllib.request.urlretrieve, imagekit_url, temp_path)
+
+                    # Offload the heavy PDF parsing and chunking to a thread pool!
+                    chunks = await asyncio.to_thread(
+                        _sync_extract_and_chunk, 
+                        temp_path, 
+                        file_name, 
+                        settings.CHUNK_SIZE, 
+                        settings.CHUNK_OVERLAP
+                    )
+                    title = source.title or file_name
+                except Exception:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                    raise
 
             elif source_type in (SourceType.WEBSITE, SourceType.YOUTUBE, SourceType.NOTE):
-                markdown_text = kwargs.get("content") or kwargs.get("text")
-                title = kwargs.get("title", "Note")
+                markdown_text = source.source_data.get("content")
+                title = source.title or "Note"
                 
                 if not markdown_text:
-                    raise ValueError("No content provided for processing.")
+                    raise ValueError("No content provided in source_data for processing.")
 
                 # Even for raw text, regex chunking is CPU-bound. Offload it!
                 chunks = await asyncio.to_thread(
@@ -280,7 +301,7 @@ async def index_source_background(
                                 'is_table': chunk.get('is_table', False),
                                 'user_id': str(user_id),
                                 'notebook_id': str(notebook_id),
-                                'file_name': kwargs.get('file_name', title),
+                                'file_name': title,
                             },
                         )
                     )
@@ -301,3 +322,4 @@ async def index_source_background(
             logger.error(f"Indexing failed for {source_id}: {e}", exc_info=True)
             # Safe fallback: Ensure we always write the error state to the database
             await source_repo.update_status(source_id, notebook_id, SourceStatus.ERROR, error_message=str(e))
+            raise

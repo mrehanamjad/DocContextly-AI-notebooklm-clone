@@ -38,13 +38,12 @@ router = APIRouter(tags=["Artifacts"])
 async def create_quiz(
     notebook_id: uuid.UUID,
     data: QuizCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a quiz artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_quiz(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_quiz(notebook_id, current_user.id, data)
     return APIResponse(
         message="Quiz artifact generation has been initiated successfully",
         data=artifact,
@@ -59,13 +58,12 @@ async def create_quiz(
 async def create_flashcards(
     notebook_id: uuid.UUID,
     data: FlashcardCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a flashcards artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_flashcards(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_flashcards(notebook_id, current_user.id, data)
     return APIResponse(
         message="Flashcards artifact generation has been initiated successfully",
         data=artifact,
@@ -80,13 +78,12 @@ async def create_flashcards(
 async def create_faqs(
     notebook_id: uuid.UUID,
     data: FAQCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a FAQ artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_faqs(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_faqs(notebook_id, current_user.id, data)
     return APIResponse(
         message="FAQ artifact generation has been initiated successfully",
         data=artifact,
@@ -101,13 +98,12 @@ async def create_faqs(
 async def create_study_guide(
     notebook_id: uuid.UUID,
     data: StudyGuideCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a study guide artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_study_guide(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_study_guide(notebook_id, current_user.id, data)
     return APIResponse(
         message="Study guide generation has been initiated successfully",
         data=artifact,
@@ -122,13 +118,12 @@ async def create_study_guide(
 async def create_summary(
     notebook_id: uuid.UUID,
     data: SummaryCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a summary artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_summary(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_summary(notebook_id, current_user.id, data)
     return APIResponse(
         message="Summary generation has been initiated successfully",
         data=artifact,
@@ -143,13 +138,12 @@ async def create_summary(
 async def create_mindmap(
     notebook_id: uuid.UUID,
     data: MindMapCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a mind map artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_mindmap(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_mindmap(notebook_id, current_user.id, data)
     return APIResponse(
         message="Mind map generation has been initiated successfully",
         data=artifact,
@@ -164,13 +158,12 @@ async def create_mindmap(
 async def create_slide_deck(
     notebook_id: uuid.UUID,
     data: SlideDeckCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a slide deck artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_slide_deck(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_slide_deck(notebook_id, current_user.id, data)
     return APIResponse(
         message="Slide deck generation has been initiated successfully",
         data=artifact,
@@ -185,13 +178,12 @@ async def create_slide_deck(
 async def create_voice_overview(
     notebook_id: uuid.UUID,
     data: AudioOverviewCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a two-host voice overview (podcast-style audio) from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_voice_overview(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_voice_overview(notebook_id, current_user.id, data)
     return APIResponse(
         message="Voice overview generation has been initiated successfully",
         data=artifact,
@@ -206,13 +198,12 @@ async def create_voice_overview(
 async def create_report(
     notebook_id: uuid.UUID,
     data: ReportCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a structured report artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_report(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_report(notebook_id, current_user.id, data)
     return APIResponse(
         message="Report artifact generation has been initiated successfully",
         data=artifact,
@@ -227,13 +218,12 @@ async def create_report(
 async def create_datatable(
     notebook_id: uuid.UUID,
     data: DataTableCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Generate a structured data table artifact from notebook sources."""
     service = ArtifactService(db)
-    artifact = await service.create_datatable(notebook_id, current_user.id, data, background_tasks)
+    artifact = await service.create_datatable(notebook_id, current_user.id, data)
     return APIResponse(
         message="Data table artifact generation has been initiated successfully",
         data=artifact,
@@ -248,14 +238,13 @@ async def create_datatable(
 async def retry_artifact(
     notebook_id: uuid.UUID,
     artifact_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Retry a failed artifact generation task."""
     service = ArtifactService(db)
     artifact = await service.retry_artifact_generation(
-        notebook_id, artifact_id, uuid.UUID(str(current_user.id)), background_tasks
+        notebook_id, artifact_id, uuid.UUID(str(current_user.id))
     )
     return APIResponse(
         message="Artifact retry has been initiated successfully",

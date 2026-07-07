@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +14,8 @@ from app.features.artifacts.model import Artifact
 # ── Import Core Schemas and Exceptions ────────────────────────────────────────
 from app.core.exceptions import AppException
 from app.core.schemas import APIErrorResponse
+from app.core.queue.config import create_arq_pool, close_arq_pool
+from app.core.logger import logger
 
 # ── Import routers ────────────────────────────────────────────────────────────
 from app.features.users.router import router as users_router
@@ -21,10 +24,32 @@ from app.features.sources.router import router as sources_router
 from app.features.chat.router import router as chat_router
 from app.features.artifacts.router import router as artifacts_router
 
+
+# ── Application Lifespan ──────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup / shutdown lifecycle for the FastAPI application."""
+    # ── Startup ───────────────────────────────────────────────────────────
+    try:
+        await create_arq_pool()
+        logger.info("ARQ pool initialised during startup")
+    except Exception as e:
+        # Non-fatal: the API can still serve requests; background jobs
+        # will fail with a clear RuntimeError until Redis is available.
+        logger.warning(f"ARQ pool creation failed (jobs will not be queued): {e}")
+
+    yield
+
+    # ── Shutdown ──────────────────────────────────────────────────────────
+    await close_arq_pool()
+    logger.info("ARQ pool closed during shutdown")
+
+
 app = FastAPI(
     title="LM Notes API",
     description="NotebookLM-style document RAG with conversational memory",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────

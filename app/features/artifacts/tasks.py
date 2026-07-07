@@ -318,6 +318,7 @@ async def run_generation_task(
                 )
 
             logger.info(f"Background task failed for artifact {artifact_id}")
+            raise
 
 
 # =============================================================================
@@ -487,6 +488,7 @@ async def run_voice_overview_generation_task(
                     error_message=str(e),
                 )
             logger.info(f"Background task failed for voice overview artifact {artifact_id}")
+            raise
 
         finally:
             # Always clean up the local temp audio file once it's uploaded (or on failure)

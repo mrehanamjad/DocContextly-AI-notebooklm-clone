@@ -24,7 +24,7 @@ from app.core.providers.storage import get_storage_provider
 from app.core.validator import StringValidator
 
 from app.features.sources.loader import load_yt_bulk, get_topic_urls, load_web, is_supported
-from app.features.sources.tasks import index_source_background
+from app.core.queue.config import get_arq_pool
 from app.features.sources.helpers import collection_exists
 from app.features.notebooks.service import NotebookService
 from app.features.sources.repository import SourceRepository
@@ -46,12 +46,7 @@ class SourceService:
         if hasattr(settings, "YOUTUBE_DATA_API_KEY") and settings.YOUTUBE_DATA_API_KEY:
             self.youtube_client = build('youtube', 'v3', developerKey=settings.YOUTUBE_DATA_API_KEY)
 
-    @staticmethod
-    def _handle_bg_task_result(t: asyncio.Task, s_id: str) -> None:
-        try:
-            t.result()
-        except Exception as e:
-            logger.error(f"Background indexing crashed for {s_id}: {e}", exc_info=True)
+
 
     @staticmethod
     def _extract_video_id(url: str) -> str:
@@ -348,19 +343,13 @@ class SourceService:
                 for source in inserted:
                     responses.append(self._create_upload_response(source))
                     
-                    task = asyncio.create_task(
-                        index_source_background(
-                            source_id=source.source_id,
-                            source_type=source.source_type,
-                            user_id=user_id,
-                            notebook_id=notebook_id,
-                            url=source.source_data["url"],
-                            content=source.source_data["content"],
-                            title=source.title,
-                        )
-                    )
-                    task.add_done_callback(
-                        lambda t, s_id=source.source_id: self._handle_bg_task_result(t, s_id)
+                    pool = get_arq_pool()
+                    await pool.enqueue_job(
+                        "index_source_job",
+                        source_id=source.source_id,
+                        source_type=source.source_type.value,
+                        user_id=str(user_id),
+                        notebook_id=str(notebook_id),
                     )
             
             except IntegrityError:
@@ -495,15 +484,17 @@ class SourceService:
             os.unlink(temp_path)
             raise ValidationError(f"Database error saving source: {e}")
 
-        asyncio.create_task(
-            index_source_background(
-                source_id=source_id,
-                source_type=SourceType.UPLOAD,
-                user_id=user_id,
-                notebook_id=notebook_id,
-                file_path=temp_path,
-                file_name=file_name,
-            )
+        # Delete local temp file immediately. Background task will fetch it from storage.
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+        pool = get_arq_pool()
+        await pool.enqueue_job(
+            "index_source_job",
+            source_id=source_id,
+            source_type=SourceType.UPLOAD.value,
+            user_id=str(user_id),
+            notebook_id=str(notebook_id),
         )
 
         return self._create_upload_response(source)
@@ -619,15 +610,13 @@ class SourceService:
             source_data={"content": note_data.content},
         ))
 
-        asyncio.create_task(
-            index_source_background(
-                source_id=source_id,
-                source_type=SourceType.NOTE,
-                user_id=user_id,
-                notebook_id=note_data.notebook_id,
-                text=note_data.content,
-                title=note_data.title,
-            )
+        pool = get_arq_pool()
+        await pool.enqueue_job(
+            "index_source_job",
+            source_id=source_id,
+            source_type=SourceType.NOTE.value,
+            user_id=str(user_id),
+            notebook_id=str(note_data.notebook_id),
         )
 
         return self._create_upload_response(source)
@@ -654,16 +643,13 @@ class SourceService:
             )
         else:
             # For Web, YT, and Notes, the content is already safely in the DB!
-            asyncio.create_task(
-                index_source_background(
-                    source_id=source.source_id,
-                    source_type=source.source_type,
-                    user_id=user_id,
-                    notebook_id=notebook_id,
-                    url=source.source_data.get("url"),
-                    content=source.source_data.get("content"),
-                    title=source.title,
-                )
+            pool = get_arq_pool()
+            await pool.enqueue_job(
+                "index_source_job",
+                source_id=source.source_id,
+                source_type=source.source_type.value,
+                user_id=str(user_id),
+                notebook_id=str(notebook_id),
             )
 
         return SourceStatusResponse(

@@ -59,6 +59,9 @@ class Settings(BaseSettings):
 
     PEXELS_API_KEY: str = ''
 
+    # ── Redis / ARQ ────────────────────────────────────────────────────────────
+    REDIS_URL: str = ''
+
     # ── Helpers ────────────────────────────────────────────────────────────────
     @property
     def async_database_url(self) -> str:
