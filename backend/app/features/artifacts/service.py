@@ -519,7 +519,6 @@ class ArtifactService:
         await pool.enqueue_job(
             "generate_text_artifact",
             _job_id=f"generate_text_artifact_{artifact.id}",
-            _job_timeout=900,
             artifact_id=str(artifact.id),
             notebook_id=str(notebook_id),
             user_id=str(user_id),
@@ -547,7 +546,6 @@ class ArtifactService:
         await pool.enqueue_job(
             "generate_voice_overview",
             _job_id=f"generate_voice_overview_{artifact.id}",
-            _job_timeout=900,
             artifact_id=str(artifact.id),
             notebook_id=str(notebook_id),
             user_id=str(user_id),

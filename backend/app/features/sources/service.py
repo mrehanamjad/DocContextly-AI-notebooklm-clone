@@ -347,7 +347,6 @@ class SourceService:
                     await pool.enqueue_job(
                         "index_source_job",
                         _job_id=f"index_source_{source.source_id}",
-                        _job_timeout=900,
                         source_id=source.source_id,
                         source_type=source.source_type.value,
                         user_id=str(user_id),
@@ -494,7 +493,6 @@ class SourceService:
         await pool.enqueue_job(
             "index_source_job",
             _job_id=f"index_source_{source_id}",
-            _job_timeout=900,
             source_id=source_id,
             source_type=SourceType.UPLOAD.value,
             user_id=str(user_id),
@@ -618,7 +616,6 @@ class SourceService:
         await pool.enqueue_job(
             "index_source_job",
             _job_id=f"index_source_{source_id}",
-            _job_timeout=900,
             source_id=source_id,
             source_type=SourceType.NOTE.value,
             user_id=str(user_id),
@@ -653,7 +650,6 @@ class SourceService:
             await pool.enqueue_job(
                 "index_source_job",
                 _job_id=f"index_source_{source.source_id}",
-                _job_timeout=900,
                 source_id=source.source_id,
                 source_type=source.source_type.value,
                 user_id=str(user_id),

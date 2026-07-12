@@ -40,48 +40,34 @@ async def startup(ctx: dict[str, Any]) -> None:
     """
     worker_logger.info("Worker starting up …")
 
-    # ── Database ──────────────────────────────────────────────────────────
-    # Import here to avoid circular imports at module level.
+    from app.core.resources import initialize_resources, shutdown_resources
+    
+    try:
+        await initialize_resources()
+    except Exception as e:
+        worker_logger.error(f"Worker failed to initialize resources: {e}")
+        raise
+        
+    # ── Map to ctx to preserve task business logic ────────
     from app.database.session import async_engine
-
     ctx["db_engine"] = async_engine
-    worker_logger.info(f"Database engine ready: {settings.DATABASE_URL[:40]}…")
 
-    # ── AI Providers (lazy singletons — first call warms the cache) ───────
     from app.core.ai_clients import get_llm, get_qdrant_client, get_embeddings
-
     ctx["llm"] = get_llm()
-    worker_logger.info(f"LLM provider ready: {settings.LLM_PROVIDER}/{settings.LLM_MODEL}")
-
     ctx["qdrant"] = get_qdrant_client()
-    worker_logger.info(f"Qdrant client ready: {settings.QDRANT_URL[:40]}…")
-
     ctx["embeddings"] = get_embeddings()
-    worker_logger.info(f"Embeddings ready: {settings.EMBEDDING_PROVIDER}/{settings.HF_MODEL_NAME}")
 
-    # ── Storage ───────────────────────────────────────────────────────────
     from app.core.providers.storage import get_storage_provider
-
     ctx["storage"] = get_storage_provider()
-    worker_logger.info(f"Storage provider ready: {settings.STORAGE_PROVIDER}")
 
     worker_logger.info("Worker startup complete ✓")
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:
-    """Called once when the worker process is shutting down.
-
-    Disposes of the SQLAlchemy async engine to release all DB connections
-    back to the pool.  Other clients (Qdrant, LLM) are stateless or
-    handle their own cleanup.
-    """
+    """Called once when the worker process is shutting down."""
     worker_logger.info("Worker shutting down …")
-
-    engine = ctx.get("db_engine")
-    if engine is not None:
-        await engine.dispose()
-        worker_logger.info("Database engine disposed")
-
+    from app.core.resources import shutdown_resources
+    await shutdown_resources()
     worker_logger.info("Worker shutdown complete ✓")
 
 
@@ -106,6 +92,11 @@ class WorkerSettings:
     # ── Tuning ────────────────────────────────────────────────────────────
     # Maximum number of jobs running concurrently in this worker.
     max_jobs = 10
+
+    # Time (seconds) before a running job is considered timed out.
+    # Set to 900s (15 min) to accommodate heavy workloads like
+    # large PDF indexing and voice overview synthesis.
+    job_timeout = 900
 
     # How long to wait for active jobs to finish during a graceful shutdown (SIGTERM).
     job_completion_wait = 30

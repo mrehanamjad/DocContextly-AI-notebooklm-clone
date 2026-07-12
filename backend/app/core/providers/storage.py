@@ -108,9 +108,24 @@ _PROVIDERS = {
 }
 
 
-def get_storage_provider(provider_name: Optional[str] = None) -> BaseStorageProvider:
+_storage_provider_instance: Optional[BaseStorageProvider] = None
+
+def initialize_storage_provider(provider_name: Optional[str] = None) -> None:
+    """Initialize the storage provider."""
+    global _storage_provider_instance
+    if _storage_provider_instance is not None:
+        return
+    
     name = (provider_name or settings.STORAGE_PROVIDER).lower()
+    logger.info(f"Connecting to Storage: {name}")
     provider_cls = _PROVIDERS.get(name)
     if not provider_cls:
         raise ValueError(f"Unknown storage provider: {name}")
-    return provider_cls()
+    _storage_provider_instance = provider_cls()
+
+
+def get_storage_provider() -> BaseStorageProvider:
+    """Return the initialized storage provider."""
+    if _storage_provider_instance is None:
+        raise RuntimeError("Storage provider not initialized. Call initialize_storage_provider() first.")
+    return _storage_provider_instance

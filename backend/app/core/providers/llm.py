@@ -26,6 +26,7 @@ class GroqProvider(BaseLLMProvider):
             temperature=0.2,
             max_tokens=2048,
             groq_api_key=settings.GROQ_API_KEY,
+            reasoning_format="hidden"
         )
 
 

@@ -14,7 +14,7 @@ from app.features.artifacts.model import Artifact
 # ── Import Core Schemas and Exceptions ────────────────────────────────────────
 from app.core.exceptions import AppException
 from app.core.schemas import APIErrorResponse
-from app.core.queue.config import create_arq_pool, close_arq_pool
+from app.core.resources import initialize_resources, shutdown_resources
 from app.core.logger import logger
 
 # ── Import routers ────────────────────────────────────────────────────────────
@@ -31,18 +31,16 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle for the FastAPI application."""
     # ── Startup ───────────────────────────────────────────────────────────
     try:
-        await create_arq_pool()
-        logger.info("ARQ pool initialised during startup")
+        await initialize_resources()
     except Exception as e:
-        # Non-fatal: the API can still serve requests; background jobs
-        # will fail with a clear RuntimeError until Redis is available.
-        logger.warning(f"ARQ pool creation failed (jobs will not be queued): {e}")
+        logger.error(f"Application failed to initialize resources: {e}")
+        # Note: We let it continue so the API can return 500s instead of crashing the pod instantly,
+        # or we could raise if strict fail-fast is desired. The orchestrator already logged it.
 
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────
-    await close_arq_pool()
-    logger.info("ARQ pool closed during shutdown")
+    await shutdown_resources()
 
 
 app = FastAPI(
