@@ -21,11 +21,11 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ''
     OPENAI_API_KEY: str = ''
     OPENROUTER_API_KEY: str = ''
-    LLM_MODEL: str = 'llama-3.3-70b-versatile'
+    LLM_MODEL: str = 'qwen/qwen3-32b'
 
     # ── Embeddings ─────────────────────────────────────────────────────────────
     EMBEDDING_PROVIDER: str = 'huggingface'  # huggingface | openai
-    HF_MODEL_NAME: str = 'all-MiniLM-L6-v2'
+    HF_MODEL_NAME: str = 'sentence-transformers/all-MiniLM-L6-v2'
 
     # ── Qdrant ─────────────────────────────────────────────────────────────────
     QDRANT_URL: str = ''
